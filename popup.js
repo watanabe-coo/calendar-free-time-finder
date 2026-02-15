@@ -636,7 +636,12 @@ function renderGridView(emails, rangeStart, days, startHour, endHour) {
 
         if (dateInfo.isToday) cls += ' today-col';
 
-        html += `<td class="${cls} cell-tooltip" data-tip="${tip}"></td>`;
+        if (cls.includes('cell-free')) {
+          const iso = slotTime.toISOString();
+          html += `<td class="${cls} cell-tooltip cell-clickable" data-tip="${tip}" data-time="${iso}"></td>`;
+        } else {
+          html += `<td class="${cls} cell-tooltip" data-tip="${tip}"></td>`;
+        }
       }
       html += '</tr>';
     }
@@ -644,6 +649,16 @@ function renderGridView(emails, rangeStart, days, startHour, endHour) {
 
   html += '</tbody></table>';
   container.innerHTML = html;
+
+  // Add click-to-book on free cells
+  container.querySelectorAll('.cell-clickable').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const start = new Date(cell.dataset.time);
+      const end = new Date(start.getTime() + 30 * 60000);
+      const url = buildCalendarUrl(start, end);
+      window.open(url, '_blank');
+    });
+  });
 }
 
 // ---- Utilities ----
