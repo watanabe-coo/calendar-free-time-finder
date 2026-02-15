@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>空き時間ファインダー</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- ログイン画面 -->
+    <div id="login-view" class="view">
+      <div class="header">
+        <h1>📅 空き時間ファインダー</h1>
+        <p class="subtitle">3名の予定を比較して空き時間を発見</p>
+      </div>
+      <button id="login-btn" class="btn btn-primary btn-full">
+        Googleアカウントでログイン
+      </button>
+    </div>
+
+    <!-- メイン画面 -->
+    <div id="main-view" class="view hidden">
+      <div class="header compact">
+        <h1>📅 空き時間ファインダー</h1>
+        <button id="logout-btn" class="btn btn-sm btn-ghost">ログアウト</button>
+      </div>
+
+      <!-- メンバー入力 -->
+      <div class="section">
+        <h2>メンバー選択</h2>
+        <div class="preset-bar">
+          <select id="preset-select" class="select preset-select">
+            <option value="">-- プリセット --</option>
+          </select>
+          <button id="preset-overwrite-btn" class="btn btn-sm btn-ghost hidden" title="選択中のプリセットを上書き保存">上書き</button>
+          <button id="preset-delete-btn" class="btn btn-sm btn-ghost btn-danger hidden" title="選択中のプリセットを削除">削除</button>
+        </div>
+        <div class="preset-save-row">
+          <input type="text" id="preset-name" class="input input-sm" placeholder="プリセット名（例: チームA）">
+          <button id="preset-save-btn" class="btn btn-sm btn-outline">新規保存</button>
+        </div>
+        <div class="member-inputs">
+          <div class="member-row">
+            <span class="member-badge" style="background:#4285f4">1</span>
+            <input type="email" id="member1" class="input" placeholder="メールアドレス（例: tanaka@company.com）">
+          </div>
+          <div class="member-row">
+            <span class="member-badge" style="background:#ea4335">2</span>
+            <input type="email" id="member2" class="input" placeholder="メールアドレス（例: suzuki@company.com）">
+          </div>
+          <div class="member-row">
+            <span class="member-badge" style="background:#34a853">3</span>
+            <input type="email" id="member3" class="input" placeholder="メールアドレス（例: sato@company.com）">
+          </div>
+        </div>
+      </div>
+
+      <!-- 設定 -->
+      <div class="section">
+        <div class="settings-row">
+          <label>期間</label>
+          <select id="period-select" class="select">
+            <option value="7">1週間</option>
+            <option value="14" selected>2週間</option>
+            <option value="30">1ヶ月</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label>営業時間</label>
+          <div class="time-range">
+            <select id="start-hour" class="select select-sm">
+              <option value="8">8:00</option>
+              <option value="9" selected>9:00</option>
+              <option value="10">10:00</option>
+            </select>
+            <span>〜</span>
+            <select id="end-hour" class="select select-sm">
+              <option value="17">17:00</option>
+              <option value="18" selected>18:00</option>
+              <option value="19">19:00</option>
+              <option value="20">20:00</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>最短スロット</label>
+          <select id="min-duration" class="select">
+            <option value="15">15分</option>
+            <option value="30" selected>30分</option>
+            <option value="60">60分</option>
+          </select>
+        </div>
+        <div class="settings-row settings-row-col">
+          <label>除外キーワード</label>
+          <input type="text" id="exclude-keywords" class="input" placeholder="例: ランチ, 移動時間, 作業ブロック（カンマ区切り）">
+          <span class="hint">タイトルに含む予定を空きとして扱います</span>
+        </div>
+      </div>
+
+      <button id="find-btn" class="btn btn-primary btn-full">
+        🔍 空き時間を検索
+      </button>
+
+      <!-- ローディング -->
+      <div id="loading" class="hidden">
+        <div class="spinner"></div>
+        <p>カレンダーを取得中...</p>
+      </div>
+
+      <!-- エラー表示 -->
+      <div id="error-msg" class="error-box hidden"></div>
+
+      <!-- 結果表示 -->
+      <div id="results" class="hidden">
+        <div class="results-header">
+          <h2>🎯 共通の空き時間</h2>
+          <span id="result-count" class="badge"></span>
+        </div>
+
+        <!-- タブ: リスト / グリッド -->
+        <div class="tab-bar">
+          <button class="tab active" data-tab="list">リスト</button>
+          <button class="tab" data-tab="grid">グリッド</button>
+        </div>
+
+        <div id="list-view" class="tab-content">
+          <div id="slot-list"></div>
+        </div>
+
+        <div id="grid-view" class="tab-content hidden">
+          <div class="grid-legend">
+            <span class="legend-item"><span class="dot busy"></span>予定あり</span>
+            <span class="legend-item"><span class="dot free"></span>全員空き</span>
+            <span class="legend-item"><span class="dot partial"></span>一部空き</span>
+          </div>
+          <div id="time-grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

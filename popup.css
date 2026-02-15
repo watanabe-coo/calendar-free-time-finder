@@ -1,0 +1,460 @@
+/* ==============================
+   Calendar Free Time Finder CSS
+   ============================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 420px;
+  max-height: 600px;
+  overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  color: #1a1a1a;
+  background: #fafafa;
+}
+
+#app {
+  padding: 16px;
+}
+
+.hidden { display: none !important; }
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+.header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a73e8;
+}
+.header.compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+.header.compact h1 { font-size: 15px; }
+.subtitle {
+  color: #666;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 16px;
+  transition: all .15s ease;
+}
+.btn:hover { filter: brightness(0.95); }
+.btn:active { transform: scale(0.98); }
+.btn-primary {
+  background: #1a73e8;
+  color: white;
+}
+.btn-primary:hover { background: #1557b0; }
+.btn-full { width: 100%; }
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+.btn-ghost {
+  background: transparent;
+  color: #666;
+  border: 1px solid #ddd;
+}
+.btn-ghost:hover { background: #f0f0f0; }
+
+/* Sections */
+.section {
+  background: white;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e8e8e8;
+}
+.section h2 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+/* Member inputs */
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.member-row:last-child { margin-bottom: 0; }
+.member-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.input, .select {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 12px;
+  background: white;
+  outline: none;
+  transition: border-color .15s;
+}
+.input:focus, .select:focus {
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 2px rgba(26,115,232,0.15);
+}
+
+/* Settings */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.settings-row:last-child { margin-bottom: 0; }
+.settings-row label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #444;
+}
+.time-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.select-sm { width: 75px; flex: none; }
+
+/* Loading */
+#loading {
+  text-align: center;
+  padding: 24px;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e8e8e8;
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  margin: 0 auto 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Error */
+.error-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+/* Results */
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 8px;
+}
+.results-header h2 {
+  font-size: 14px;
+  font-weight: 700;
+}
+.badge {
+  background: #1a73e8;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* Tabs */
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  background: #eee;
+  border-radius: 8px;
+  padding: 2px;
+  margin-bottom: 10px;
+}
+.tab {
+  flex: 1;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all .15s;
+}
+.tab.active {
+  background: white;
+  color: #1a73e8;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Slot list */
+.day-group {
+  margin-bottom: 12px;
+}
+.day-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a73e8;
+  margin-bottom: 4px;
+  padding: 4px 0;
+  border-bottom: 1px solid #e8e8e8;
+}
+.day-label .weekday { color: #333; }
+.slot-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  cursor: default;
+  transition: border-color .15s;
+}
+.slot-card:hover {
+  border-color: #1a73e8;
+  background: #f8fbff;
+}
+.slot-time {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+.slot-duration {
+  font-size: 11px;
+  color: #888;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.no-slots {
+  text-align: center;
+  color: #999;
+  padding: 16px;
+  font-size: 12px;
+}
+
+/* Grid view */
+.grid-legend {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: #666;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.dot.busy { background: #fecaca; }
+.dot.free { background: #86efac; }
+.dot.partial { background: #fde68a; }
+
+#time-grid {
+  overflow-x: auto;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  background: white;
+}
+.grid-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 600px;
+}
+.grid-table th,
+.grid-table td {
+  padding: 2px;
+  text-align: center;
+  font-size: 10px;
+  border: 1px solid #f0f0f0;
+}
+.grid-table th {
+  background: #f8f8f8;
+  font-weight: 600;
+  color: #555;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.grid-table .time-col {
+  width: 50px;
+  text-align: right;
+  padding-right: 6px;
+  font-weight: 600;
+  color: #888;
+  background: #fafafa;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+.grid-table .cell-free {
+  background: #dcfce7;
+}
+.grid-table .cell-partial {
+  background: #fef9c3;
+}
+.grid-table .cell-busy {
+  background: #fee2e2;
+}
+.grid-table .cell-weekend {
+  background: #f5f5f5;
+}
+.grid-table .today-col {
+  border-left: 2px solid #1a73e8;
+  border-right: 2px solid #1a73e8;
+}
+
+/* Tooltip */
+.cell-tooltip {
+  position: relative;
+}
+.cell-tooltip:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Preset bar */
+.preset-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.preset-select {
+  flex: 1;
+  min-width: 0;
+}
+.preset-save-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.preset-save-row .input {
+  flex: 1;
+}
+.input-sm {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+.btn-outline {
+  background: transparent;
+  color: #1a73e8;
+  border: 1px solid #1a73e8;
+}
+.btn-outline:hover {
+  background: #e8f0fe;
+}
+.btn-danger {
+  color: #dc2626;
+  border-color: #ddd;
+}
+.btn-danger:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+/* Slot booking button */
+.slot-book-btn {
+  padding: 3px 8px;
+  font-size: 10px;
+  background: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  font-weight: 600;
+  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: background .15s;
+}
+.slot-book-btn:hover {
+  background: #1557b0;
+}
+
+/* Exclude keywords (vertical layout) */
+.settings-row-col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.settings-row-col label {
+  margin-bottom: 0;
+}
+.hint {
+  font-size: 10px;
+  color: #999;
+}
+
+/* Scrollbar */
+body::-webkit-scrollbar { width: 6px; }
+body::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+#time-grid::-webkit-scrollbar { height: 6px; }
+#time-grid::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
