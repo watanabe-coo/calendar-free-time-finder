@@ -215,6 +215,18 @@ body {
   font-size: 12px;
 }
 
+/* Info */
+.info-box {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  font-size: 12px;
+  white-space: pre-line;
+}
+
 /* Results */
 .results-header {
   display: flex;

@@ -85,10 +85,10 @@
             <span>〜</span>
             <select id="end-hour" class="select select-sm">
               <option value="17">17:00</option>
-              <option value="18" selected>18:00</option>
+              <option value="18">18:00</option>
               <option value="19">19:00</option>
               <option value="20">20:00</option>
-              <option value="21">21:00</option>
+              <option value="21" selected>21:00</option>
             </select>
           </div>
         </div>
@@ -102,8 +102,8 @@
         </div>
         <div class="settings-row settings-row-col">
           <label>除外キーワード</label>
-          <input type="text" id="exclude-keywords" class="input" placeholder="例: ランチ, 移動時間, 作業ブロック（カンマ区切り）">
-          <span class="hint">タイトルに含む予定を空きとして扱います</span>
+          <input type="text" id="exclude-keywords" class="input" placeholder="例: ランチ, &quot;b&quot;, 作業ブロック（カンマ区切り）">
+          <span class="hint">部分一致（大文字小文字区別なし）。"b" のように引用符で囲むとタイトル完全一致（大文字小文字区別あり）</span>
         </div>
         <div class="settings-row">
           <label for="include-tentative">未回答・仮承諾も予定ありとして扱う</label>
@@ -123,6 +123,8 @@
 
       <!-- エラー表示 -->
       <div id="error-msg" class="error-box hidden"></div>
+      <!-- 情報表示 -->
+      <div id="info-msg" class="info-box hidden"></div>
 
       <!-- 結果表示 -->
       <div id="results" class="hidden">

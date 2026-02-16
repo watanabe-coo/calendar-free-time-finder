@@ -21,14 +21,36 @@ const errorEl = $('#error-msg');
 const resultsEl = $('#results');
 
 // ---- Storage: Auto-save / Restore ----
+// Exclude keyword format:
+//   "b"     → exact match (case-sensitive, title must equal "b")
+//   block   → partial match (case-insensitive, title contains "block")
 function parseExcludeKeywords(text) {
-  return text.split(',').map(k => k.trim()).filter(k => k.length >= 2);
+  return text.split(',').map(k => k.trim()).filter(Boolean).map(k => {
+    // Check for "quoted" exact-match syntax
+    const exactMatch = k.match(/^"(.+)"$/);
+    if (exactMatch) {
+      return { keyword: exactMatch[1], exact: true };
+    }
+    return { keyword: k, exact: false };
+  });
+}
+
+function matchesExcludeKeyword(title, keywords) {
+  return keywords.find(kw => {
+    if (kw.exact) {
+      // Exact match: title must equal keyword exactly (case-sensitive)
+      return title === kw.keyword;
+    } else {
+      // Partial match: case-insensitive contains
+      return title.toLowerCase().includes(kw.keyword.toLowerCase());
+    }
+  });
 }
 
 function saveLastInput() {
   const emails = MEMBER_IDS.map(id => $(`#${id}`).value.trim());
-  const excludeKeywords = parseExcludeKeywords($('#exclude-keywords').value);
-  chrome.storage.local.set({ [STORAGE_KEYS.LAST_INPUT]: { emails, excludeKeywords } });
+  const excludeKeywordsRaw = $('#exclude-keywords').value;
+  chrome.storage.local.set({ [STORAGE_KEYS.LAST_INPUT]: { emails, excludeKeywordsRaw } });
 }
 
 async function restoreLastInput() {
@@ -41,8 +63,16 @@ async function restoreLastInput() {
             $(`#${id}`).value = data.emails[i] || '';
           });
         }
-        if (data.excludeKeywords) {
-          $('#exclude-keywords').value = data.excludeKeywords.join(', ');
+        if (data.excludeKeywordsRaw != null) {
+          $('#exclude-keywords').value = data.excludeKeywordsRaw;
+        } else if (data.excludeKeywords) {
+          // Backward compatibility: old format was array of strings or objects
+          const keywords = data.excludeKeywords;
+          if (Array.isArray(keywords)) {
+            $('#exclude-keywords').value = keywords.map(k =>
+              typeof k === 'object' ? (k.exact ? `"${k.keyword}"` : k.keyword) : k
+            ).join(', ');
+          }
         }
       }
       resolve();
@@ -222,7 +252,18 @@ $('#preset-select').addEventListener('change', async () => {
   MEMBER_IDS.forEach((id, i) => {
     $(`#${id}`).value = preset.emails[i] || '';
   });
-  $('#exclude-keywords').value = (preset.excludeKeywords || []).join(', ');
+  // Restore exclude keywords (support both old array format and new raw text format)
+  if (preset.excludeKeywordsRaw != null) {
+    $('#exclude-keywords').value = preset.excludeKeywordsRaw;
+  } else if (preset.excludeKeywords) {
+    $('#exclude-keywords').value = Array.isArray(preset.excludeKeywords)
+      ? preset.excludeKeywords.map(k =>
+          typeof k === 'object' ? (k.exact ? `"${k.keyword}"` : k.keyword) : k
+        ).join(', ')
+      : '';
+  } else {
+    $('#exclude-keywords').value = '';
+  }
   $('#preset-name').value = preset.name;
   saveLastInput();
 });
@@ -234,14 +275,14 @@ $('#preset-save-btn').addEventListener('click', async () => {
     return;
   }
   const emails = MEMBER_IDS.map(id => $(`#${id}`).value.trim());
-  const excludeKeywords = parseExcludeKeywords($('#exclude-keywords').value);
+  const excludeKeywordsRaw = $('#exclude-keywords').value;
   const presets = await loadPresets();
   const existing = presets.findIndex(p => p.name === name);
   if (existing >= 0) {
     if (!confirm(`プリセット「${name}」は既に存在します。上書きしますか？`)) return;
-    presets[existing] = { name, emails, excludeKeywords };
+    presets[existing] = { name, emails, excludeKeywordsRaw };
   } else {
-    presets.push({ name, emails, excludeKeywords });
+    presets.push({ name, emails, excludeKeywordsRaw });
   }
   await savePresets(presets);
   await populatePresetDropdown();
@@ -262,8 +303,8 @@ $('#preset-overwrite-btn').addEventListener('click', async () => {
   if (!preset) return;
   if (!confirm(`プリセット「${preset.name}」を現在の入力内容で上書きしますか？`)) return;
   const emails = MEMBER_IDS.map(id => $(`#${id}`).value.trim());
-  const excludeKeywords = parseExcludeKeywords($('#exclude-keywords').value);
-  presets[parseInt(index)] = { name: preset.name, emails, excludeKeywords };
+  const excludeKeywordsRaw = $('#exclude-keywords').value;
+  presets[parseInt(index)] = { name: preset.name, emails, excludeKeywordsRaw };
   await savePresets(presets);
   hideError();
 });
@@ -440,6 +481,8 @@ async function fetchAllMemberEvents(emails, timeMin, timeMax, excludeKeywords, i
 
   const busyData = {};
   const fallbackPromises = [];
+  let excludedByKeyword = 0;
+  let excludedByStatus = 0;
 
   emails.forEach((email, i) => {
     const result = results[i];
@@ -456,15 +499,17 @@ async function fetchAllMemberEvents(emails, timeMin, timeMax, excludeKeywords, i
           const rs = event.responseStatus;
           if (rs === 'needsAction' || rs === 'tentative') {
             console.log(`[FTF] 除外(未回答/仮承諾): "${event.summary}" status=${rs} email=${email}`);
+            excludedByStatus++;
             return false;
           }
         }
         // Filter by exclude keywords
         if (excludeKeywords.length > 0) {
-          const title = event.summary.toLowerCase();
-          const matchedKw = excludeKeywords.find(kw => title.includes(kw.toLowerCase()));
+          const title = event.summary;
+          const matchedKw = matchesExcludeKeyword(title, excludeKeywords);
           if (matchedKw) {
-            console.log(`[FTF] 除外(キーワード): "${event.summary}" matched="${matchedKw}" email=${email}`);
+            console.log(`[FTF] 除外(キーワード): "${event.summary}" matched="${matchedKw.keyword}"(${matchedKw.exact ? '完全一致' : '部分一致'}) email=${email}`);
+            excludedByKeyword++;
             return false;
           }
         }
@@ -478,7 +523,7 @@ async function fetchAllMemberEvents(emails, timeMin, timeMax, excludeKeywords, i
   });
 
   await Promise.all(fallbackPromises);
-  return busyData;
+  return { busyData, excludedByKeyword, excludedByStatus };
 }
 
 // ---- Find Free Time ----
@@ -498,6 +543,7 @@ findBtn.addEventListener('click', async () => {
   const includeTentative = $('#include-tentative').checked;
 
   hideError();
+  hideInfo();
   resultsEl.classList.add('hidden');
   loadingEl.classList.remove('hidden');
   findBtn.disabled = true;
@@ -508,7 +554,8 @@ findBtn.addEventListener('click', async () => {
     const end = new Date(start);
     end.setDate(end.getDate() + days);
 
-    const busyData = await fetchAllMemberEvents(emails, start, end, excludeKeywords, includeTentative);
+    const result = await fetchAllMemberEvents(emails, start, end, excludeKeywords, includeTentative);
+    const busyData = result.busyData;
     lastBusyData = busyData;
     lastEmails = emails;
 
@@ -520,14 +567,23 @@ findBtn.addEventListener('click', async () => {
     const fallbackEmails = emails.filter(e => busyData[e]?.isFreeBusyFallback);
     const trueErrors = errorEmails.filter(e => !busyData[e]?.isFreeBusyFallback);
 
-    const msgs = [];
+    const errorMsgs = [];
     if (trueErrors.length > 0) {
-      msgs.push(`以下のカレンダーにアクセスできません: ${trueErrors.join(', ')}（権限を確認してください）`);
+      errorMsgs.push(`以下のカレンダーにアクセスできません: ${trueErrors.join(', ')}（権限を確認してください）`);
     }
     if (fallbackEmails.length > 0) {
-      msgs.push(`以下はフリービジー情報のみ取得（除外キーワード適用外）: ${fallbackEmails.join(', ')}`);
+      errorMsgs.push(`以下はフリービジー情報のみ取得（除外キーワード適用外）: ${fallbackEmails.join(', ')}`);
     }
-    if (msgs.length > 0) showError(msgs.join('\n'));
+    if (errorMsgs.length > 0) showError(errorMsgs.join('\n'));
+
+    const infoMsgs = [];
+    if (result.excludedByKeyword > 0) {
+      infoMsgs.push(`除外キーワードにより ${result.excludedByKeyword}件の予定を空き扱いにしました`);
+    }
+    if (result.excludedByStatus > 0) {
+      infoMsgs.push(`未回答・仮承諾により ${result.excludedByStatus}件の予定を除外しました`);
+    }
+    if (infoMsgs.length > 0) showInfo(infoMsgs.join('\n'));
 
     const freeSlots = calculateFreeSlots(
       busyData, emails, start, end, startHour, endHour, minDuration
@@ -546,16 +602,24 @@ findBtn.addEventListener('click', async () => {
 function calculateFreeSlots(busyData, emails, rangeStart, rangeEnd, startHour, endHour, minDurationMin) {
   const slots = [];
   const current = new Date(rangeStart);
+  const now = new Date();
 
   while (current < rangeEnd) {
     const dayOfWeek = current.getDay();
 
     // Skip weekends
     if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      const dayStart = new Date(current);
+      let dayStart = new Date(current);
       dayStart.setHours(startHour, 0, 0, 0);
       const dayEnd = new Date(current);
       dayEnd.setHours(endHour, 0, 0, 0);
+
+      // For today, skip past time slots (round up to next 30-min boundary)
+      if (current.toDateString() === now.toDateString() && now > dayStart) {
+        const rounded = new Date(now);
+        rounded.setMinutes(Math.ceil(rounded.getMinutes() / 30) * 30, 0, 0);
+        dayStart = rounded > dayEnd ? dayEnd : rounded;
+      }
 
       // Merge all busy periods from all members
       const allBusy = [];
@@ -647,6 +711,14 @@ function renderResults(slots, emails, rangeStart, days, startHour, endHour) {
 
   renderListView(slots);
   renderGridView(emails, rangeStart, days, startHour, endHour);
+
+  // If 0 results, default to grid view so user can see why
+  const defaultTab = slots.length === 0 ? 'grid' : 'list';
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === defaultTab);
+  });
+  $('#list-view').classList.toggle('hidden', defaultTab !== 'list');
+  $('#grid-view').classList.toggle('hidden', defaultTab !== 'grid');
 
   // Tab switching (use event delegation to avoid duplicate listeners)
   const tabBar = document.querySelector('.tab-bar');
@@ -824,4 +896,15 @@ function showError(msg) {
 
 function hideError() {
   errorEl.classList.add('hidden');
+}
+
+function showInfo(msg) {
+  const el = $('#info-msg');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function hideInfo() {
+  const el = $('#info-msg');
+  el.classList.add('hidden');
 }
