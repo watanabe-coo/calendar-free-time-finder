@@ -104,8 +104,43 @@ body {
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
+  position: relative;
 }
 .member-row:last-child { margin-bottom: 0; }
+
+/* Email suggest dropdown */
+.email-suggest {
+  position: absolute;
+  top: 100%;
+  left: 30px;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 100;
+  max-height: 140px;
+  overflow-y: auto;
+}
+.email-suggest-item {
+  padding: 7px 10px;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+  transition: background .1s;
+}
+.email-suggest-item:hover,
+.email-suggest-item.active {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+.email-suggest-item:first-child {
+  border-radius: 0;
+}
+.email-suggest-item:last-child {
+  border-radius: 0 0 6px 6px;
+}
 .member-badge {
   width: 22px;
   height: 22px;

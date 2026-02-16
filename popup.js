@@ -6,7 +6,8 @@ let authToken = null;
 let lastBusyData = null;
 let lastEmails = null;
 
-const STORAGE_KEYS = { LAST_INPUT: 'lastInput', PRESETS: 'presets' };
+const STORAGE_KEYS = { LAST_INPUT: 'lastInput', PRESETS: 'presets', EMAIL_HISTORY: 'emailHistory' };
+const MEMBER_IDS = ['member1', 'member2', 'member3', 'member4', 'member5'];
 
 // ---- DOM Elements ----
 const $ = (sel) => document.querySelector(sel);
@@ -21,15 +22,11 @@ const resultsEl = $('#results');
 
 // ---- Storage: Auto-save / Restore ----
 function parseExcludeKeywords(text) {
-  return text.split(',').map(k => k.trim()).filter(Boolean);
+  return text.split(',').map(k => k.trim()).filter(k => k.length >= 2);
 }
 
 function saveLastInput() {
-  const emails = [
-    $('#member1').value.trim(),
-    $('#member2').value.trim(),
-    $('#member3').value.trim()
-  ];
+  const emails = MEMBER_IDS.map(id => $(`#${id}`).value.trim());
   const excludeKeywords = parseExcludeKeywords($('#exclude-keywords').value);
   chrome.storage.local.set({ [STORAGE_KEYS.LAST_INPUT]: { emails, excludeKeywords } });
 }
@@ -40,7 +37,7 @@ async function restoreLastInput() {
       const data = result[STORAGE_KEYS.LAST_INPUT];
       if (data) {
         if (data.emails) {
-          ['member1', 'member2', 'member3'].forEach((id, i) => {
+          MEMBER_IDS.forEach((id, i) => {
             $(`#${id}`).value = data.emails[i] || '';
           });
         }
@@ -54,9 +51,133 @@ async function restoreLastInput() {
 }
 
 // Auto-save on every input change
-['member1', 'member2', 'member3', 'exclude-keywords'].forEach(id => {
+[...MEMBER_IDS, 'exclude-keywords'].forEach(id => {
   $(`#${id}`).addEventListener('input', saveLastInput);
 });
+
+// ---- Email History & Suggest ----
+let emailHistoryCache = [];
+
+async function loadEmailHistory() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(STORAGE_KEYS.EMAIL_HISTORY, (result) => {
+      emailHistoryCache = result[STORAGE_KEYS.EMAIL_HISTORY] || [];
+      resolve(emailHistoryCache);
+    });
+  });
+}
+
+async function addEmailsToHistory(emails) {
+  const history = await loadEmailHistory();
+  let changed = false;
+  for (const email of emails) {
+    const trimmed = email.trim().toLowerCase();
+    if (trimmed && !history.includes(trimmed)) {
+      history.push(trimmed);
+      changed = true;
+    }
+  }
+  if (changed) {
+    emailHistoryCache = history;
+    chrome.storage.local.set({ [STORAGE_KEYS.EMAIL_HISTORY]: history });
+  }
+}
+
+function setupEmailSuggest() {
+  let activeDropdown = null;
+  let activeIndex = -1;
+
+  function closeSuggest() {
+    if (activeDropdown) {
+      activeDropdown.remove();
+      activeDropdown = null;
+      activeIndex = -1;
+    }
+  }
+
+  function showSuggest(input) {
+    closeSuggest();
+    const query = input.value.trim().toLowerCase();
+    if (!query) return;
+
+    // Get emails already entered in other fields to exclude them
+    const usedEmails = new Set(
+      MEMBER_IDS.map(id => $(`#${id}`).value.trim().toLowerCase()).filter(Boolean)
+    );
+
+    const matches = emailHistoryCache.filter(
+      email => email.includes(query) && !usedEmails.has(email)
+    );
+    if (matches.length === 0) return;
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'email-suggest';
+    matches.slice(0, 6).forEach((email, i) => {
+      const item = document.createElement('div');
+      item.className = 'email-suggest-item';
+      item.textContent = email;
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // prevent blur before click registers
+        input.value = email;
+        closeSuggest();
+        saveLastInput();
+        // Move focus to next empty member input
+        const nextEmpty = MEMBER_IDS.find(id => !$(`#${id}`).value.trim());
+        if (nextEmpty) $(`#${nextEmpty}`).focus();
+      });
+      dropdown.appendChild(item);
+    });
+
+    input.closest('.member-row').appendChild(dropdown);
+    activeDropdown = dropdown;
+    activeIndex = -1;
+  }
+
+  function highlightItem(index) {
+    if (!activeDropdown) return;
+    const items = activeDropdown.querySelectorAll('.email-suggest-item');
+    items.forEach((item, i) => item.classList.toggle('active', i === index));
+    activeIndex = index;
+  }
+
+  MEMBER_IDS.forEach(id => {
+    const input = $(`#${id}`);
+
+    input.addEventListener('input', () => showSuggest(input));
+    input.addEventListener('focus', () => {
+      if (input.value.trim()) showSuggest(input);
+    });
+    input.addEventListener('blur', () => {
+      // Small delay so mousedown on item fires first
+      setTimeout(closeSuggest, 150);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (!activeDropdown) return;
+      const items = activeDropdown.querySelectorAll('.email-suggest-item');
+      if (items.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightItem(Math.min(activeIndex + 1, items.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlightItem(Math.max(activeIndex - 1, 0));
+      } else if (e.key === 'Enter' && activeIndex >= 0) {
+        e.preventDefault();
+        input.value = items[activeIndex].textContent;
+        closeSuggest();
+        saveLastInput();
+        const nextEmpty = MEMBER_IDS.find(mid => !$(`#${mid}`).value.trim());
+        if (nextEmpty) $(`#${nextEmpty}`).focus();
+      } else if (e.key === 'Escape') {
+        closeSuggest();
+      }
+    });
+  });
+}
+
+// Initialize email suggest on load
+loadEmailHistory().then(() => setupEmailSuggest());
 
 // ---- Preset Management ----
 async function loadPresets() {
@@ -98,7 +219,7 @@ $('#preset-select').addEventListener('change', async () => {
   const presets = await loadPresets();
   const preset = presets[parseInt(index)];
   if (!preset) return;
-  ['member1', 'member2', 'member3'].forEach((id, i) => {
+  MEMBER_IDS.forEach((id, i) => {
     $(`#${id}`).value = preset.emails[i] || '';
   });
   $('#exclude-keywords').value = (preset.excludeKeywords || []).join(', ');
@@ -112,11 +233,7 @@ $('#preset-save-btn').addEventListener('click', async () => {
     showError('プリセット名を入力してください。');
     return;
   }
-  const emails = [
-    $('#member1').value.trim(),
-    $('#member2').value.trim(),
-    $('#member3').value.trim()
-  ];
+  const emails = MEMBER_IDS.map(id => $(`#${id}`).value.trim());
   const excludeKeywords = parseExcludeKeywords($('#exclude-keywords').value);
   const presets = await loadPresets();
   const existing = presets.findIndex(p => p.name === name);
@@ -144,11 +261,7 @@ $('#preset-overwrite-btn').addEventListener('click', async () => {
   const preset = presets[parseInt(index)];
   if (!preset) return;
   if (!confirm(`プリセット「${preset.name}」を現在の入力内容で上書きしますか？`)) return;
-  const emails = [
-    $('#member1').value.trim(),
-    $('#member2').value.trim(),
-    $('#member3').value.trim()
-  ];
+  const emails = MEMBER_IDS.map(id => $(`#${id}`).value.trim());
   const excludeKeywords = parseExcludeKeywords($('#exclude-keywords').value);
   presets[parseInt(index)] = { name: preset.name, emails, excludeKeywords };
   await savePresets(presets);
@@ -254,18 +367,35 @@ async function fetchCalendarEvents(email, timeMin, timeMax) {
   }
 
   const data = await res.json();
+  console.log(`[FTF] ${email}: ${(data.items || []).length}件のイベント取得`);
   const events = (data.items || [])
     .filter(item => {
       if (item.status === 'cancelled') return false;
       if (item.transparency === 'transparent') return false;
       if (!item.start?.dateTime || !item.end?.dateTime) return false;
+      // Find the calendar owner's attendance status
+      // When fetching someone else's calendar, a.self refers to the authenticated user, not the calendar owner.
+      // So we must match by email. Also check organizer.self to detect calendar owner's own events.
+      const attendees = item.attendees || [];
+      const calOwner = attendees.find(a => a.email?.toLowerCase() === email.toLowerCase());
+      // If no attendees list (single-person event) or owner not found, treat as accepted
+      const ownerStatus = calOwner ? calOwner.responseStatus : 'accepted';
+      if (ownerStatus === 'declined') return false;
+      if (!calOwner && attendees.length > 0) {
+        console.log(`[FTF] ⚠️ attendeeにメール不一致: "${item.summary}" email=${email} attendees=[${attendees.map(a => a.email).join(', ')}]`);
+      }
       return true;
     })
-    .map(item => ({
-      start: new Date(item.start.dateTime),
-      end: new Date(item.end.dateTime),
-      summary: item.summary || ''
-    }));
+    .map(item => {
+      const attendees = item.attendees || [];
+      const calOwner = attendees.find(a => a.email?.toLowerCase() === email.toLowerCase());
+      return {
+        start: new Date(item.start.dateTime),
+        end: new Date(item.end.dateTime),
+        summary: item.summary || '',
+        responseStatus: calOwner ? calOwner.responseStatus : 'accepted'
+      };
+    });
 
   return { events, error: null };
 }
@@ -303,7 +433,7 @@ async function fetchFreeBusyFallback(email, timeMin, timeMax) {
   };
 }
 
-async function fetchAllMemberEvents(emails, timeMin, timeMax, excludeKeywords) {
+async function fetchAllMemberEvents(emails, timeMin, timeMax, excludeKeywords, includeTentative) {
   const results = await Promise.all(
     emails.map(email => fetchCalendarEvents(email, timeMin, timeMax))
   );
@@ -321,9 +451,25 @@ async function fetchAllMemberEvents(emails, timeMin, timeMax, excludeKeywords) {
       );
     } else {
       const filteredEvents = result.events.filter(event => {
-        if (excludeKeywords.length === 0) return true;
-        const title = event.summary.toLowerCase();
-        return !excludeKeywords.some(kw => title.includes(kw.toLowerCase()));
+        // Filter by response status
+        if (!includeTentative) {
+          const rs = event.responseStatus;
+          if (rs === 'needsAction' || rs === 'tentative') {
+            console.log(`[FTF] 除外(未回答/仮承諾): "${event.summary}" status=${rs} email=${email}`);
+            return false;
+          }
+        }
+        // Filter by exclude keywords
+        if (excludeKeywords.length > 0) {
+          const title = event.summary.toLowerCase();
+          const matchedKw = excludeKeywords.find(kw => title.includes(kw.toLowerCase()));
+          if (matchedKw) {
+            console.log(`[FTF] 除外(キーワード): "${event.summary}" matched="${matchedKw}" email=${email}`);
+            return false;
+          }
+        }
+        console.log(`[FTF] 予定あり: "${event.summary}" status=${event.responseStatus} email=${email} ${event.start.toLocaleString()}-${event.end.toLocaleString()}`);
+        return true;
       });
       busyData[email] = {
         busy: filteredEvents.map(e => ({ start: e.start, end: e.end }))
@@ -337,11 +483,7 @@ async function fetchAllMemberEvents(emails, timeMin, timeMax, excludeKeywords) {
 
 // ---- Find Free Time ----
 findBtn.addEventListener('click', async () => {
-  const emails = [
-    $('#member1').value.trim(),
-    $('#member2').value.trim(),
-    $('#member3').value.trim()
-  ].filter(Boolean);
+  const emails = MEMBER_IDS.map(id => $(`#${id}`).value.trim()).filter(Boolean);
 
   if (emails.length < 2) {
     showError('少なくとも2名のメールアドレスを入力してください。');
@@ -353,6 +495,7 @@ findBtn.addEventListener('click', async () => {
   const endHour = parseInt($('#end-hour').value);
   const minDuration = parseInt($('#min-duration').value);
   const excludeKeywords = parseExcludeKeywords($('#exclude-keywords').value);
+  const includeTentative = $('#include-tentative').checked;
 
   hideError();
   resultsEl.classList.add('hidden');
@@ -365,9 +508,12 @@ findBtn.addEventListener('click', async () => {
     const end = new Date(start);
     end.setDate(end.getDate() + days);
 
-    const busyData = await fetchAllMemberEvents(emails, start, end, excludeKeywords);
+    const busyData = await fetchAllMemberEvents(emails, start, end, excludeKeywords, includeTentative);
     lastBusyData = busyData;
     lastEmails = emails;
+
+    // Save emails to history for future suggestions
+    await addEmailsToHistory(emails);
 
     // Check for errors and fallbacks
     const errorEmails = emails.filter(e => busyData[e]?.error);
@@ -520,11 +666,7 @@ function buildCalendarUrl(start, end) {
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
   };
-  const emails = [
-    $('#member1').value.trim(),
-    $('#member2').value.trim(),
-    $('#member3').value.trim()
-  ].filter(Boolean);
+  const emails = MEMBER_IDS.map(id => $(`#${id}`).value.trim()).filter(Boolean);
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     dates: `${fmt(start)}/${fmt(end)}`
