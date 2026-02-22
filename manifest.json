@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Calendar Free Time Finder",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "最大5名のメンバーのGoogleカレンダーから空き時間を瞬時に洗い出します",
   "permissions": [
     "identity",
