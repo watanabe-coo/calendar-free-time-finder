@@ -1,6 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Calendar Free Time Finder",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoOjZVYdcHvEE76wxX0YO2U3B4yvt0bWEEt3aoATrHI8vMAaw+FvyrdhEadL2/tq0ZRrl3S527ub/w1WPJW7vy0RkFsAX5oS+xjKNvseUU1BoZJhpqnm/pf2L2kR+beGOQFtFTucypBHhMdtQEGU1aI8/3DX4nZpzfLJv4WvQ0jAzaAVl8w0kwJE+1vbgSKQIMeLoh3EfGuuhvlxxKPbHB4EK5UqWDlBaxsmG9peplHFyPsxygel7o6t+cAtRl6pWWr0/2O0XQi1dQ2sOnBMgFYFg/L09uACS9w9KrpWgI/w5bVqvDuBsNJsomhki+j80XvBXCTXa+WTPy6wQjh3mswIDAQAB",
   "version": "1.3.0",
   "description": "最大5名のメンバーのGoogleカレンダーから空き時間を瞬時に洗い出します",
   "permissions": [
